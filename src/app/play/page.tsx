@@ -1251,7 +1251,9 @@ function PlayPageClient() {
               skipIntroRef.current = val;
               try {
                 localStorage.setItem('skip_intro_time', String(val));
-              } catch (_) {}
+              } catch (_) {
+                // ignore
+              }
               return item.html;
             },
           },
@@ -1271,7 +1273,9 @@ function PlayPageClient() {
               skipOutroRef.current = val;
               try {
                 localStorage.setItem('skip_outro_time', String(val));
-              } catch (_) {}
+              } catch (_) {
+                // ignore
+              }
               return item.html;
             },
           },
