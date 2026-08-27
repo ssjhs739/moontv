@@ -61,6 +61,29 @@ function PlayPageClient() {
     blockAdEnabledRef.current = blockAdEnabled;
   }, [blockAdEnabled]);
 
+  // 跳过片头/片尾设置（秒）
+  const [skipIntro, setSkipIntro] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      return Number(localStorage.getItem('skip_intro_time')) || 0;
+    }
+    return 0;
+  });
+  const [skipOutro, setSkipOutro] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      return Number(localStorage.getItem('skip_outro_time')) || 0;
+    }
+    return 0;
+  });
+  const skipIntroRef = useRef(skipIntro);
+  const skipOutroRef = useRef(skipOutro);
+  const isSwitchingEpisodeRef = useRef(false);
+  useEffect(() => {
+    skipIntroRef.current = skipIntro;
+  }, [skipIntro]);
+  useEffect(() => {
+    skipOutroRef.current = skipOutro;
+  }, [skipOutro]);
+
   // 视频基本信息
   const [videoTitle, setVideoTitle] = useState(searchParams.get('title') || '');
   const [videoYear, setVideoYear] = useState(searchParams.get('year') || '');
@@ -1212,6 +1235,46 @@ function PlayPageClient() {
               return newVal ? '当前开启' : '当前关闭';
             },
           },
+          {
+            html: '跳过片头',
+            tooltip: skipIntroRef.current > 0 ? `${skipIntroRef.current}秒` : '关闭 (0s)',
+            selector: [
+              { default: skipIntroRef.current === 0, html: '关闭 (0s)', value: 0 },
+              { default: skipIntroRef.current === 30, html: '30秒', value: 30 },
+              { default: skipIntroRef.current === 60, html: '60秒', value: 60 },
+              { default: skipIntroRef.current === 90, html: '90秒', value: 90 },
+              { default: skipIntroRef.current === 120, html: '120秒', value: 120 },
+            ],
+            onSelect(item: any) {
+              const val = Number(item.value) || 0;
+              setSkipIntro(val);
+              skipIntroRef.current = val;
+              try {
+                localStorage.setItem('skip_intro_time', String(val));
+              } catch (_) {}
+              return item.html;
+            },
+          },
+          {
+            html: '跳过片尾',
+            tooltip: skipOutroRef.current > 0 ? `${skipOutroRef.current}秒` : '关闭 (0s)',
+            selector: [
+              { default: skipOutroRef.current === 0, html: '关闭 (0s)', value: 0 },
+              { default: skipOutroRef.current === 30, html: '30秒', value: 30 },
+              { default: skipOutroRef.current === 60, html: '60秒', value: 60 },
+              { default: skipOutroRef.current === 90, html: '90秒', value: 90 },
+              { default: skipOutroRef.current === 120, html: '120秒', value: 120 },
+            ],
+            onSelect(item: any) {
+              const val = Number(item.value) || 0;
+              setSkipOutro(val);
+              skipOutroRef.current = val;
+              try {
+                localStorage.setItem('skip_outro_time', String(val));
+              } catch (_) {}
+              return item.html;
+            },
+          },
         ],
         // 控制栏配置
         controls: [
@@ -1239,6 +1302,7 @@ function PlayPageClient() {
       // 监听视频可播放事件，这时恢复播放进度更可靠
       artPlayerRef.current.on('video:canplay', () => {
         // 若存在需要恢复的播放进度，则跳转
+        const intro = skipIntroRef.current || 0;
         if (resumeTimeRef.current && resumeTimeRef.current > 0) {
           try {
             const duration = artPlayerRef.current.duration || 0;
@@ -1251,6 +1315,15 @@ function PlayPageClient() {
           } catch (err) {
             console.warn('恢复播放进度失败:', err);
           }
+        } else if (intro > 0) {
+          try {
+            if (artPlayerRef.current.currentTime < intro) {
+              artPlayerRef.current.currentTime = intro;
+              artPlayerRef.current.notice.show = `已跳过片头 ${intro} 秒`;
+            }
+          } catch (err) {
+            console.warn('跳过片头失败:', err);
+          }
         }
         resumeTimeRef.current = null;
 
@@ -1260,7 +1333,6 @@ function PlayPageClient() {
           ) {
             artPlayerRef.current.volume = lastVolumeRef.current;
           }
-          artPlayerRef.current.notice.show = '';
         }, 0);
 
         // 隐藏换源加载状态
@@ -1284,6 +1356,31 @@ function PlayPageClient() {
       });
 
       artPlayerRef.current.on('video:timeupdate', () => {
+        const outro = skipOutroRef.current || 0;
+        if (outro > 0 && artPlayerRef.current) {
+          const duration = artPlayerRef.current.duration || 0;
+          const currentTime = artPlayerRef.current.currentTime || 0;
+          const d = detailRef.current;
+          const idx = currentEpisodeIndexRef.current;
+          if (
+            duration > 0 &&
+            currentTime > 0 &&
+            duration - currentTime <= outro &&
+            d &&
+            d.episodes &&
+            idx < d.episodes.length - 1
+          ) {
+            if (!isSwitchingEpisodeRef.current) {
+              isSwitchingEpisodeRef.current = true;
+              artPlayerRef.current.notice.show = '已跳过片尾，正在播放下一集...';
+              setTimeout(() => {
+                setCurrentEpisodeIndex(idx + 1);
+                isSwitchingEpisodeRef.current = false;
+              }, 800);
+            }
+          }
+        }
+
         const now = Date.now();
         if (
           now - lastSaveTimeRef.current >
@@ -1677,6 +1774,7 @@ function PlayPageClient() {
                     src={videoCover}
                     alt={videoTitle}
                     className='w-full h-full object-cover'
+                    referrerPolicy='no-referrer'
                   />
                 ) : (
                   <span className='text-gray-600 dark:text-gray-400'>
