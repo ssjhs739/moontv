@@ -23,13 +23,27 @@ export async function GET(request: Request) {
 
   try {
     const parsedTarget = new URL(targetUrl);
-    const response = await fetch(targetUrl, {
+    
+    // 尝试不同的请求头策略
+    let response = await fetch(targetUrl, {
       headers: {
         'User-Agent':
           'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
         Referer: `${parsedTarget.protocol}//${parsedTarget.host}/`,
+        Accept: '*/*',
       },
     });
+
+    if (!response.ok && (response.status === 403 || response.status === 401 || response.status === 522)) {
+      // 备用方案：不带 Referer 重新请求
+      response = await fetch(targetUrl, {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+          Accept: '*/*',
+        },
+      });
+    }
 
     if (!response.ok) {
       return NextResponse.json(
