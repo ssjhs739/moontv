@@ -448,27 +448,80 @@ function PlayPageClient() {
       super(config);
       const load = this.load.bind(this);
       this.load = function (context: any, config: any, callbacks: any) {
-        // 拦截manifest和level请求
-        if (
-          (context as any).type === 'manifest' ||
-          (context as any).type === 'level'
-        ) {
-          const onSuccess = callbacks.onSuccess;
-          callbacks.onSuccess = function (
-            response: any,
-            stats: any,
-            context: any
-          ) {
-            // 如果是m3u8文件，处理内容以移除广告分段
-            if (response.data && typeof response.data === 'string') {
-              // 过滤掉广告段 - 实现更精确的广告过滤逻辑
+        const originalOnSuccess = callbacks.onSuccess;
+        const originalOnError = callbacks.onError;
+        const originalOnTimeout = callbacks.onTimeout;
+
+        const wrappedCallbacks = {
+          ...callbacks,
+          onSuccess: function (response: any, stats: any, ctx: any, networkDetails?: any) {
+            // 过滤广告分段
+            if (
+              blockAdEnabledRef.current &&
+              ((ctx as any)?.type === 'manifest' || (ctx as any)?.type === 'level') &&
+              response?.data &&
+              typeof response.data === 'string'
+            ) {
               response.data = filterAdsFromM3U8(response.data);
             }
-            return onSuccess(response, stats, context, null);
-          };
-        }
+            if (originalOnSuccess) {
+              originalOnSuccess(response, stats, ctx, networkDetails);
+            }
+          },
+          onError: function (error: any, ctx: any, networkDetails?: any) {
+            const currentUrl = ctx?.url || context?.url;
+            if (
+              currentUrl &&
+              !currentUrl.startsWith('/api/proxy') &&
+              !currentUrl.includes('/api/proxy?url=')
+            ) {
+              console.warn(
+                `[CORS/Network Fallback] 请求直连失败 (${currentUrl})，正在切换为 /api/proxy 代理通道重试...`
+              );
+              const proxyUrl = `/api/proxy?url=${encodeURIComponent(currentUrl)}`;
+              ctx.url = proxyUrl;
+              context.url = proxyUrl;
+              load(context, config, {
+                ...callbacks,
+                onSuccess: wrappedCallbacks.onSuccess,
+                onError: originalOnError,
+                onTimeout: originalOnTimeout,
+              });
+              return;
+            }
+            if (originalOnError) {
+              originalOnError(error, ctx, networkDetails);
+            }
+          },
+          onTimeout: function (stats: any, ctx: any, networkDetails?: any) {
+            const currentUrl = ctx?.url || context?.url;
+            if (
+              currentUrl &&
+              !currentUrl.startsWith('/api/proxy') &&
+              !currentUrl.includes('/api/proxy?url=')
+            ) {
+              console.warn(
+                `[Timeout Fallback] 请求直连超时 (${currentUrl})，正在切换为 /api/proxy 代理通道重试...`
+              );
+              const proxyUrl = `/api/proxy?url=${encodeURIComponent(currentUrl)}`;
+              ctx.url = proxyUrl;
+              context.url = proxyUrl;
+              load(context, config, {
+                ...callbacks,
+                onSuccess: wrappedCallbacks.onSuccess,
+                onError: originalOnError,
+                onTimeout: originalOnTimeout,
+              });
+              return;
+            }
+            if (originalOnTimeout) {
+              originalOnTimeout(stats, ctx, networkDetails);
+            }
+          },
+        };
+
         // 执行原始load方法
-        load(context, config, callbacks);
+        load(context, config, wrappedCallbacks);
       };
     }
   }
@@ -1162,10 +1215,8 @@ function PlayPageClient() {
               fragLoadingTimeOut: 20000,
               manifestLoadingTimeOut: 15000,
 
-              /* 自定义loader */
-              loader: blockAdEnabledRef.current
-                ? CustomHlsJsLoader
-                : Hls.DefaultConfig.loader,
+              /* 自定义loader（智能双模代理+广告拦截） */
+              loader: CustomHlsJsLoader,
             });
 
             hls.loadSource(url);
