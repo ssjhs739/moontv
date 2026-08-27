@@ -1125,13 +1125,19 @@ function PlayPageClient() {
             }
             const hls = new Hls({
               debug: false, // 关闭日志
-              enableWorker: true, // WebWorker 解码，降低主线程压力
-              lowLatencyMode: true, // 开启低延迟 LL-HLS
+              enableWorker: true, // 开启 Web Worker 多线程解封装
+              lowLatencyMode: false, // 专为 VOD 点播优化平滑缓冲
 
-              /* 缓冲/内存相关 */
-              maxBufferLength: 30, // 前向缓冲最大 30s，过大容易导致高延迟
-              backBufferLength: 30, // 仅保留 30s 已播放内容，避免内存占用
-              maxBufferSize: 60 * 1000 * 1000, // 约 60MB，超出后触发清理
+              /* 缓冲/内存与预加载调优 */
+              backBufferLength: 30, // 保留 30 秒回退缓冲，倒退秒响应
+              maxBufferLength: 90, // 目标向前缓冲 90 秒，深度预存防卡顿
+              maxMaxBufferLength: 180, // 最大向前缓冲 180 秒
+              maxBufferSize: 60 * 1000 * 1000, // 60MB 内存安全缓冲池
+              maxBufferHole: 0.5, // 降低分片空隙跳帧阈值
+              startFragPrefetch: true, // 开启后续分片并行预拉取
+              progressive: true, // 开启渐进式流式解析，边下边解秒起播
+              fragLoadingTimeOut: 20000,
+              manifestLoadingTimeOut: 15000,
 
               /* 自定义loader */
               loader: blockAdEnabledRef.current
