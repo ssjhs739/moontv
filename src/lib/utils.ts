@@ -43,8 +43,42 @@ export async function getVideoResolutionFromM3u8(m3u8Url: string): Promise<{
           pingTime = performance.now() - pingStart; // 记录到失败为止的时间
         });
 
-      // 固定使用hls.js加载
-      const hls = new Hls();
+      // 固定使用hls.js加载并增加跨域代理fallback
+      const hls = new Hls({
+        loader: class extends Hls.DefaultConfig.loader {
+          constructor(config: any) {
+            super(config);
+            const load = this.load.bind(this);
+            this.load = function (context: any, config: any, callbacks: any) {
+              const originalOnError = callbacks.onError;
+              const wrappedCallbacks = {
+                ...callbacks,
+                onError: function (error: any, ctx: any, networkDetails?: any) {
+                  const currentUrl = ctx?.url || context?.url;
+                  if (
+                    currentUrl &&
+                    !currentUrl.startsWith('/api/proxy') &&
+                    !currentUrl.includes('/api/proxy?url=')
+                  ) {
+                    const proxyUrl = `/api/proxy?url=${encodeURIComponent(currentUrl)}`;
+                    ctx.url = proxyUrl;
+                    context.url = proxyUrl;
+                    load(context, config, {
+                      ...callbacks,
+                      onError: originalOnError,
+                    });
+                    return;
+                  }
+                  if (originalOnError) {
+                    originalOnError(error, ctx, networkDetails);
+                  }
+                },
+              };
+              load(context, config, wrappedCallbacks);
+            };
+          }
+        },
+      });
 
       // 设置超时处理
       const timeout = setTimeout(() => {
