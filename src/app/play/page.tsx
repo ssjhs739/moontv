@@ -128,6 +128,14 @@ function PlayPageClient() {
     null
   );
 
+  // 容灾自动切源记录
+  const failedSourcesRef = useRef<Set<string>>(new Set());
+  const isFailoveringRef = useRef(false);
+  const availableSourcesRef = useRef<SearchResult[]>(availableSources);
+  useEffect(() => {
+    availableSourcesRef.current = availableSources;
+  }, [availableSources]);
+
   // 保存优选时的测速结果，避免EpisodeSelector重复测速
   const [precomputedVideoInfo, setPrecomputedVideoInfo] = useState<
     Map<string, { quality: string; loadSpeed: string; pingTime: number }>
@@ -610,6 +618,46 @@ function PlayPageClient() {
     initFromHistory();
   }, []);
 
+  // 自动容灾换源辅助函数
+  const handleAutoFailover = (reason?: string) => {
+    if (isFailoveringRef.current) return;
+    const currentSrc = currentSourceRef.current;
+    if (currentSrc) {
+      failedSourcesRef.current.add(currentSrc);
+    }
+    console.warn(
+      `播放源 ${currentSrc} 异常 (${reason || '未知错误'})，准备自动容灾换源...`
+    );
+
+    const sources =
+      availableSourcesRef.current.length > 0
+        ? availableSourcesRef.current
+        : availableSources;
+    const nextSource = sources.find(
+      (s) => !failedSourcesRef.current.has(s.source) && s.source !== currentSrc
+    );
+
+    if (nextSource) {
+      isFailoveringRef.current = true;
+      if (artPlayerRef.current?.notice) {
+        artPlayerRef.current.notice.show =
+          '当前线路加载异常，已自动切换至备用线路...';
+      }
+      setTimeout(() => {
+        handleSourceChange(nextSource.source, nextSource.id, nextSource.title);
+        setTimeout(() => {
+          isFailoveringRef.current = false;
+        }, 1500);
+      }, 500);
+    } else {
+      console.warn('没有更多可用的备用线路');
+      if (artPlayerRef.current?.notice) {
+        artPlayerRef.current.notice.show =
+          '所有播放线路均已尝试，请稍后重试或更换视频';
+      }
+    }
+  };
+
   // 处理换源
   const handleSourceChange = async (
     newSource: string,
@@ -622,7 +670,8 @@ function PlayPageClient() {
       setIsVideoLoading(true);
 
       // 记录当前播放进度（仅在同一集数切换时恢复）
-      const currentPlayTime = artPlayerRef.current?.currentTime || 0;
+      const currentPlayTime =
+        artPlayerRef.current?.currentTime || resumeTimeRef.current || 0;
       console.log('换源前当前播放时间:', currentPlayTime);
 
       // 清除前一个历史记录
@@ -638,7 +687,11 @@ function PlayPageClient() {
         }
       }
 
-      const newDetail = availableSources.find(
+      const sources =
+        availableSourcesRef.current.length > 0
+          ? availableSourcesRef.current
+          : availableSources;
+      const newDetail = sources.find(
         (source) => source.source === newSource && source.id === newId
       );
       if (!newDetail) {
@@ -647,7 +700,7 @@ function PlayPageClient() {
       }
 
       // 尝试跳转到当前正在播放的集数
-      let targetIndex = currentEpisodeIndex;
+      let targetIndex = currentEpisodeIndexRef.current;
 
       // 如果当前集数超出新源的范围，则跳转到第一集
       if (!newDetail.episodes || targetIndex >= newDetail.episodes.length) {
@@ -655,12 +708,9 @@ function PlayPageClient() {
       }
 
       // 如果仍然是同一集数且播放进度有效，则在播放器就绪后恢复到原始进度
-      if (targetIndex !== currentEpisodeIndex) {
+      if (targetIndex !== currentEpisodeIndexRef.current) {
         resumeTimeRef.current = 0;
-      } else if (
-        (!resumeTimeRef.current || resumeTimeRef.current === 0) &&
-        currentPlayTime > 1
-      ) {
+      } else if (currentPlayTime > 1) {
         resumeTimeRef.current = currentPlayTime;
       }
 
@@ -1095,21 +1145,30 @@ function PlayPageClient() {
 
             ensureVideoSource(video, url);
 
+            let networkErrorRetryCount = 0;
             hls.on(Hls.Events.ERROR, function (event: any, data: any) {
               console.error('HLS Error:', event, data);
               if (data.fatal) {
                 switch (data.type) {
                   case Hls.ErrorTypes.NETWORK_ERROR:
-                    console.log('网络错误，尝试恢复...');
-                    hls.startLoad();
+                    networkErrorRetryCount++;
+                    if (networkErrorRetryCount <= 1) {
+                      console.log('网络错误，尝试恢复...');
+                      hls.startLoad();
+                    } else {
+                      console.log('网络错误重试超限，触发自动容灾换源...');
+                      hls.destroy();
+                      handleAutoFailover('HLS Fatal Network Error');
+                    }
                     break;
                   case Hls.ErrorTypes.MEDIA_ERROR:
                     console.log('媒体错误，尝试恢复...');
                     hls.recoverMediaError();
                     break;
                   default:
-                    console.log('无法恢复的错误');
+                    console.log('无法恢复的错误，触发自动容灾换源...');
                     hls.destroy();
+                    handleAutoFailover('HLS Fatal Error');
                     break;
                 }
               }
@@ -1204,9 +1263,7 @@ function PlayPageClient() {
 
       artPlayerRef.current.on('error', (err: any) => {
         console.error('播放器错误:', err);
-        if (artPlayerRef.current.currentTime > 0) {
-          return;
-        }
+        handleAutoFailover('Artplayer Error');
       });
 
       // 监听视频播放结束事件，自动播放下一集
