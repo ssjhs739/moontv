@@ -864,20 +864,12 @@ function PlayPageClient() {
 
   const handleToggleFullscreen = () => {
     if (!artPlayerRef.current) return;
-    if (artPlayerRef.current.fullscreen || artPlayerRef.current.fullscreenWeb) {
-      artPlayerRef.current.fullscreen = false;
+    if (artPlayerRef.current.fullscreenWeb || artPlayerRef.current.fullscreen) {
       artPlayerRef.current.fullscreenWeb = false;
+      artPlayerRef.current.fullscreen = false;
     } else {
-      // 触发物理真全屏，彻底隐藏浏览器的顶部网址栏和底部菜单栏
-      artPlayerRef.current.fullscreen = true;
-      const video = artPlayerRef.current.video;
-      if (video && (video as any).webkitEnterFullscreen) {
-        try {
-          (video as any).webkitEnterFullscreen();
-        } catch {
-          // ignore
-        }
-      }
+      // 启用无感沉浸式全屏，在桌面PWA模式下占满整块屏幕且绝不触发安卓系统下拉提示弹窗
+      artPlayerRef.current.fullscreenWeb = true;
     }
   };
 
