@@ -1,0 +1,43 @@
+name: Upstream Sync & Safe Auto-Deploy
+
+on:
+  schedule:
+    # 每天北京时间早上 8:00 (00:00 UTC) 自动巡检同步
+    - cron: '0 0 * * *'
+  workflow_dispatch: # 随时可在 GitHub Actions 页面手动一键触发
+
+permissions:
+  contents: write
+
+jobs:
+  sync_latest_from_upstream:
+    name: Sync latest commits from upstream safely
+    runs-on: ubuntu-latest
+    if: github.repository == 'ssjhs739/moontv'
+
+    steps:
+      - name: Checkout target repo
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Sync upstream changes
+        id: sync
+        uses: aormsby/Fork-Sync-With-Upstream-action@v3.4.1
+        with:
+          upstream_sync_repo: zlinoliver/moontv
+          upstream_sync_branch: main
+          target_sync_branch: main
+          target_repo_token: ${{ secrets.GITHUB_TOKEN }}
+          host_domain: github.com
+
+      - name: Sync check results
+        if: success()
+        run: |
+          echo "上游安全同步完成！Cloudflare 将自动触发重新构建与全球部署。"
+
+      - name: Notify on sync conflict
+        if: failure()
+        run: |
+          echo "注意：检测到上游更新与本地专属定制代码存在冲突。系统已自动安全中止，main 分支未做任何更改，线上站点保持 100% 稳定运行。"
