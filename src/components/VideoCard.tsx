@@ -108,6 +108,8 @@ export default function VideoCard({
       : 'tv'
     : '';
 
+  const accessibleLabel = `${actualTitle}${currentEpisode ? `，第${currentEpisode}集` : actualEpisodes && actualEpisodes > 1 ? `，全${actualEpisodes}集` : ''}${progress > 0 ? `，已看${Math.round(progress)}%` : ''}`;
+
   // 获取收藏状态
   useEffect(() => {
     if (from === 'douban' || !actualSource || !actualId) return;
@@ -253,11 +255,17 @@ export default function VideoCard({
 
   return (
     <div
+      role='button'
+      tabIndex={0}
+      aria-label={accessibleLabel}
       className='group relative w-full rounded-lg bg-transparent transition-all duration-300 ease-out hover:-translate-y-1 hover:scale-[1.02] cursor-pointer'
       onClick={handleClick}
     >
       {/* 海报容器 */}
-      <div className='relative aspect-[2/3] overflow-hidden rounded-lg shadow-md transition-shadow duration-300 ease-out group-hover:shadow-xl'>
+      <div
+        aria-hidden='true'
+        className='relative aspect-[2/3] overflow-hidden rounded-lg shadow-md transition-shadow duration-300 ease-out group-hover:shadow-xl'
+      >
         {/* 骨架屏 - 添加渐入动画 */}
         {!isLoaded && (
           <ImagePlaceholder aspectRatio='aspect-[2/3] transition-opacity duration-500 ease-out' />
@@ -295,6 +303,7 @@ export default function VideoCard({
           <div className='absolute bottom-3 right-3 flex items-center gap-3 translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 ease-out delay-75 pointer-events-auto'>
             {config.showCheckCircle && (
               <CheckCircle
+                aria-label='删除记录'
                 onClick={handleDeleteRecord}
                 size={20}
                 className='rounded-full text-white hover:stroke-green-500 transition-transform duration-200 ease-out hover:scale-110'
@@ -302,6 +311,7 @@ export default function VideoCard({
             )}
             {config.showHeart && (
               <Heart
+                aria-label={favorited ? '取消收藏' : '收藏'}
                 onClick={handleToggleFavorite}
                 size={20}
                 className={`rounded-full transition-all duration-300 ease-out hover:scale-110 ${
@@ -351,7 +361,10 @@ export default function VideoCard({
 
       {/* 进度条 - 添加动画效果 */}
       {config.showProgress && progress !== undefined && (
-        <div className='mt-1 h-1 w-full bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden'>
+        <div
+          aria-hidden='true'
+          className='mt-1 h-1 w-full bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden'
+        >
           <div
             className='h-full bg-green-500 rounded-full transition-all duration-1000 ease-out'
             style={{ width: `${progress}%` }}
@@ -360,7 +373,7 @@ export default function VideoCard({
       )}
 
       {/* 标题与来源信息 - 改进颜色过渡和延迟 */}
-      <div className='relative'>
+      <div aria-hidden='true' className='relative'>
         <span className='mt-2 block text-center text-sm font-semibold truncate text-gray-900 dark:text-gray-100 transition-all duration-300 ease-out group-hover:text-green-600 dark:group-hover:text-green-400 peer'>
           {actualTitle}
         </span>
@@ -371,7 +384,10 @@ export default function VideoCard({
         </div>
       </div>
       {config.showSourceName && source_name && (
-        <span className='block text-center text-xs text-gray-500 dark:text-gray-400 mt-1 transition-all duration-300 ease-out delay-75 group-hover:text-green-500 dark:group-hover:text-green-500 group-hover:scale-105'>
+        <span
+          aria-hidden='true'
+          className='block text-center text-xs text-gray-500 dark:text-gray-400 mt-1 transition-all duration-300 ease-out delay-75 group-hover:text-green-500 dark:group-hover:text-green-500 group-hover:scale-105'
+        >
           <span className='inline-block border rounded px-2 py-0.5 border-gray-500/60 dark:border-gray-400/60 transition-all duration-300 ease-out group-hover:border-green-500/60'>
             {source_name}
           </span>
