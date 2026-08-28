@@ -88,6 +88,7 @@ function PlayPageClient() {
   const [videoTitle, setVideoTitle] = useState(searchParams.get('title') || '');
   const [videoYear, setVideoYear] = useState(searchParams.get('year') || '');
   const [videoCover, setVideoCover] = useState('');
+  const [isPlaying, setIsPlaying] = useState(false);
   // 当前源和ID
   const [currentSource, setCurrentSource] = useState(
     searchParams.get('source') || ''
@@ -854,6 +855,44 @@ function PlayPageClient() {
     }
   };
 
+  const handleTogglePlay = () => {
+    if (artPlayerRef.current) {
+      artPlayerRef.current.toggle();
+    }
+  };
+
+  const handleToggleFullscreen = () => {
+    if (!artPlayerRef.current) return;
+    if (artPlayerRef.current.fullscreen) {
+      artPlayerRef.current.fullscreen = false;
+    } else {
+      artPlayerRef.current.fullscreen = true;
+      const video = artPlayerRef.current.video;
+      if (video && (video as any).webkitEnterFullscreen) {
+        try {
+          (video as any).webkitEnterFullscreen();
+        } catch {
+          // ignore
+        }
+      }
+    }
+  };
+
+  const handleRewind = () => {
+    if (artPlayerRef.current) {
+      artPlayerRef.current.currentTime = Math.max(0, artPlayerRef.current.currentTime - 10);
+      artPlayerRef.current.notice.show = '快退 10 秒';
+    }
+  };
+
+  const handleFastForward = () => {
+    if (artPlayerRef.current) {
+      const dur = artPlayerRef.current.duration || 0;
+      artPlayerRef.current.currentTime = Math.min(dur > 0 ? dur : Infinity, artPlayerRef.current.currentTime + 10);
+      artPlayerRef.current.notice.show = '快进 10 秒';
+    }
+  };
+
   // ---------------------------------------------------------------------------
   // 键盘快捷键
   // ---------------------------------------------------------------------------
@@ -1446,7 +1485,10 @@ function PlayPageClient() {
         }
       });
 
+      artPlayerRef.current.on('play', () => setIsPlaying(true));
+
       artPlayerRef.current.on('pause', () => {
+        setIsPlaying(false);
         saveCurrentPlayProgress();
       });
 
@@ -1744,6 +1786,86 @@ function PlayPageClient() {
                     </div>
                   </div>
                 )}
+              </div>
+
+              {/* 移动端与无障碍常驻快捷播放控制栏 */}
+              <div
+                role='toolbar'
+                aria-label='播放控制'
+                className='mt-3 flex items-center justify-between gap-2 p-2.5 bg-gray-100 dark:bg-white/10 rounded-xl flex-wrap'
+              >
+                <div className='flex items-center gap-1.5 sm:gap-2 flex-wrap'>
+                  {/* 播放/暂停 */}
+                  <button
+                    type='button'
+                    aria-label={isPlaying ? '暂停' : '播放'}
+                    onClick={handleTogglePlay}
+                    className='px-3 py-2 text-sm font-medium bg-green-500 hover:bg-green-600 active:bg-green-700 text-white rounded-lg transition-colors flex items-center gap-1 shadow-sm'
+                  >
+                    <span aria-hidden='true'>{isPlaying ? '⏸️' : '▶️'}</span>
+                    <span>{isPlaying ? '暂停' : '播放'}</span>
+                  </button>
+
+                  {/* 上一集 */}
+                  <button
+                    type='button'
+                    aria-label='上一集'
+                    disabled={currentEpisodeIndex <= 0}
+                    onClick={handlePreviousEpisode}
+                    className='px-2.5 py-2 text-sm font-medium bg-gray-200 dark:bg-white/10 hover:bg-gray-300 dark:hover:bg-white/20 text-gray-800 dark:text-gray-200 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1'
+                  >
+                    <span aria-hidden='true'>⏮️</span>
+                    <span>上一集</span>
+                  </button>
+
+                  {/* 快退 10 秒 */}
+                  <button
+                    type='button'
+                    aria-label='快退10秒'
+                    onClick={handleRewind}
+                    className='px-2.5 py-2 text-sm font-medium bg-gray-200 dark:bg-white/10 hover:bg-gray-300 dark:hover:bg-white/20 text-gray-800 dark:text-gray-200 rounded-lg transition-colors flex items-center gap-1'
+                  >
+                    <span aria-hidden='true'>⏪</span>
+                    <span>-10s</span>
+                  </button>
+
+                  {/* 快进 10 秒 */}
+                  <button
+                    type='button'
+                    aria-label='快进10秒'
+                    onClick={handleFastForward}
+                    className='px-2.5 py-2 text-sm font-medium bg-gray-200 dark:bg-white/10 hover:bg-gray-300 dark:hover:bg-white/20 text-gray-800 dark:text-gray-200 rounded-lg transition-colors flex items-center gap-1'
+                  >
+                    <span aria-hidden='true'>⏩</span>
+                    <span>+10s</span>
+                  </button>
+
+                  {/* 下一集 */}
+                  <button
+                    type='button'
+                    aria-label='下一集'
+                    disabled={
+                      !detail?.episodes ||
+                      currentEpisodeIndex >= detail.episodes.length - 1
+                    }
+                    onClick={handleNextEpisode}
+                    className='px-2.5 py-2 text-sm font-medium bg-gray-200 dark:bg-white/10 hover:bg-gray-300 dark:hover:bg-white/20 text-gray-800 dark:text-gray-200 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1'
+                  >
+                    <span aria-hidden='true'>⏭️</span>
+                    <span>下一集</span>
+                  </button>
+                </div>
+
+                {/* 全屏播放按钮 */}
+                <button
+                  type='button'
+                  aria-label='全屏播放'
+                  onClick={handleToggleFullscreen}
+                  className='px-3.5 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg transition-colors flex items-center gap-1.5 shadow-sm'
+                >
+                  <span aria-hidden='true'>⛶</span>
+                  <span>全屏播放</span>
+                </button>
               </div>
             </div>
 
