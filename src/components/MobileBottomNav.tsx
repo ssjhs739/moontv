@@ -93,9 +93,11 @@ const MobileBottomNav = ({ activePath }: MobileBottomNavProps) => {
             <li key={item.href} className='flex-shrink-0 w-1/5'>
               <Link
                 href={item.href}
+                aria-label={item.label}
                 className='flex flex-col items-center justify-center w-full h-14 gap-1 text-xs'
               >
                 <item.icon
+                  aria-hidden='true'
                   className={`h-6 w-6 ${
                     active
                       ? 'text-green-600 dark:text-green-400'
@@ -103,6 +105,7 @@ const MobileBottomNav = ({ activePath }: MobileBottomNavProps) => {
                   }`}
                 />
                 <span
+                  aria-hidden='true'
                   className={
                     active
                       ? 'text-green-600 dark:text-green-400'
