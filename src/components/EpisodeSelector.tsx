@@ -263,6 +263,8 @@ const EpisodeSelector: React.FC<EpisodeSelectorProps> = ({
       <div className='flex mb-1 -mx-6 flex-shrink-0'>
         {totalEpisodes > 1 && (
           <div
+            role="tab"
+            aria-label="选集"
             onClick={() => setActiveTab('episodes')}
             className={`flex-1 py-3 px-6 text-center cursor-pointer transition-all duration-200 font-medium
               ${
@@ -276,6 +278,8 @@ const EpisodeSelector: React.FC<EpisodeSelectorProps> = ({
           </div>
         )}
         <div
+          role="tab"
+          aria-label="换源"
           onClick={handleSourceTabClick}
           className={`flex-1 py-3 px-6 text-center cursor-pointer transition-all duration-200 font-medium
             ${
@@ -324,6 +328,7 @@ const EpisodeSelector: React.FC<EpisodeSelectorProps> = ({
             </div>
             {/* 向上/向下按钮 */}
             <button
+              aria-label={descending ? '切换为正序' : '切换为倒序'}
               className='flex-shrink-0 w-8 h-8 rounded-md flex items-center justify-center text-gray-700 hover:text-green-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:text-green-400 dark:hover:bg-white/20 transition-colors transform translate-y-[-4px]'
               onClick={() => {
                 // 切换集数排序（正序/倒序）
@@ -359,6 +364,7 @@ const EpisodeSelector: React.FC<EpisodeSelectorProps> = ({
               return (
                 <button
                   key={episodeNumber}
+                  aria-label={`第${episodeNumber}集${isActive ? '，当前播放' : ''}`}
                   onClick={() => handleEpisodeClick(episodeNumber - 1)}
                   className={`h-10 flex items-center justify-center text-sm font-medium rounded-md transition-all duration-200 
                     ${
@@ -434,6 +440,11 @@ const EpisodeSelector: React.FC<EpisodeSelectorProps> = ({
                     return (
                       <div
                         key={`${source.source}-${source.id}`}
+                        role='button'
+                        tabIndex={0}
+                        aria-label={`${source.source_name || source.source}${
+                          isCurrentSource ? '，当前播放' : ''
+                        }`}
                         onClick={() =>
                           !isCurrentSource && handleSourceClick(source)
                         }
@@ -445,7 +456,7 @@ const EpisodeSelector: React.FC<EpisodeSelectorProps> = ({
                       }`.trim()}
                       >
                         {/* 封面 */}
-                        <div className='flex-shrink-0 w-12 h-20 bg-gray-300 dark:bg-gray-600 rounded overflow-hidden'>
+                        <div aria-hidden='true' className='flex-shrink-0 w-12 h-20 bg-gray-300 dark:bg-gray-600 rounded overflow-hidden'>
                           {source.episodes && source.episodes.length > 0 && (
                             <img
                               src={source.poster}
@@ -461,7 +472,7 @@ const EpisodeSelector: React.FC<EpisodeSelectorProps> = ({
                         </div>
 
                         {/* 信息区域 */}
-                        <div className='flex-1 min-w-0 flex flex-col justify-between h-20'>
+                        <div aria-hidden='true' className='flex-1 min-w-0 flex flex-col justify-between h-20'>
                           {/* 标题和分辨率 - 顶部 */}
                           <div className='flex items-start justify-between gap-2 h-6'>
                             <div className='flex-1 relative group/title'>
