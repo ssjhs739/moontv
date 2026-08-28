@@ -1857,6 +1857,21 @@ function PlayPageClient() {
                     <span aria-hidden='true'>⏭️</span>
                     <span>下一集</span>
                   </button>
+
+                  {/* 收藏 / 取消收藏 */}
+                  <button
+                    type='button'
+                    aria-label={favorited ? '取消收藏' : '收藏'}
+                    onClick={handleToggleFavorite}
+                    className={`px-3 py-2 text-sm font-medium ${
+                      favorited
+                        ? 'bg-rose-500 hover:bg-rose-600 active:bg-rose-700 text-white'
+                        : 'bg-gray-200 dark:bg-white/10 hover:bg-gray-300 dark:hover:bg-white/20 text-gray-800 dark:text-gray-200'
+                    } rounded-lg transition-colors flex items-center gap-1 shadow-sm`}
+                  >
+                    <span aria-hidden='true'>{favorited ? '❤️' : '🤍'}</span>
+                    <span>{favorited ? '已收藏' : '收藏'}</span>
+                  </button>
                 </div>
 
                 {/* 全屏/退出全屏按钮 */}
