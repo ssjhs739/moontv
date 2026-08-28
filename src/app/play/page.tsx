@@ -89,6 +89,7 @@ function PlayPageClient() {
   const [videoYear, setVideoYear] = useState(searchParams.get('year') || '');
   const [videoCover, setVideoCover] = useState('');
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   // 当前源和ID
   const [currentSource, setCurrentSource] = useState(
     searchParams.get('source') || ''
@@ -863,18 +864,11 @@ function PlayPageClient() {
 
   const handleToggleFullscreen = () => {
     if (!artPlayerRef.current) return;
-    if (artPlayerRef.current.fullscreen) {
+    if (artPlayerRef.current.fullscreenWeb || artPlayerRef.current.fullscreen) {
+      artPlayerRef.current.fullscreenWeb = false;
       artPlayerRef.current.fullscreen = false;
     } else {
-      artPlayerRef.current.fullscreen = true;
-      const video = artPlayerRef.current.video;
-      if (video && (video as any).webkitEnterFullscreen) {
-        try {
-          (video as any).webkitEnterFullscreen();
-        } catch {
-          // ignore
-        }
-      }
+      artPlayerRef.current.fullscreenWeb = true;
     }
   };
 
@@ -1389,6 +1383,14 @@ function PlayPageClient() {
         setError(null);
       });
 
+      artPlayerRef.current.on('fullscreenWeb', (state: boolean) => {
+        setIsFullscreen(state);
+      });
+
+      artPlayerRef.current.on('fullscreen', (state: boolean) => {
+        setIsFullscreen(state);
+      });
+
       artPlayerRef.current.on('video:volumechange', () => {
         lastVolumeRef.current = artPlayerRef.current.volume;
       });
@@ -1856,15 +1858,19 @@ function PlayPageClient() {
                   </button>
                 </div>
 
-                {/* 全屏播放按钮 */}
+                {/* 全屏/退出全屏按钮 */}
                 <button
                   type='button'
-                  aria-label='全屏播放'
+                  aria-label={isFullscreen ? '退出全屏' : '全屏播放'}
                   onClick={handleToggleFullscreen}
-                  className='px-3.5 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg transition-colors flex items-center gap-1.5 shadow-sm'
+                  className={`px-3.5 py-2 text-sm font-medium ${
+                    isFullscreen
+                      ? 'bg-amber-600 hover:bg-amber-700 active:bg-amber-800'
+                      : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800'
+                  } text-white rounded-lg transition-colors flex items-center gap-1.5 shadow-sm`}
                 >
                   <span aria-hidden='true'>⛶</span>
-                  <span>全屏播放</span>
+                  <span>{isFullscreen ? '退出全屏' : '全屏播放'}</span>
                 </button>
               </div>
             </div>
