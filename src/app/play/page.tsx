@@ -864,11 +864,20 @@ function PlayPageClient() {
 
   const handleToggleFullscreen = () => {
     if (!artPlayerRef.current) return;
-    if (artPlayerRef.current.fullscreenWeb || artPlayerRef.current.fullscreen) {
-      artPlayerRef.current.fullscreenWeb = false;
+    if (artPlayerRef.current.fullscreen || artPlayerRef.current.fullscreenWeb) {
       artPlayerRef.current.fullscreen = false;
+      artPlayerRef.current.fullscreenWeb = false;
     } else {
-      artPlayerRef.current.fullscreenWeb = true;
+      // 触发物理真全屏，彻底隐藏浏览器的顶部网址栏和底部菜单栏
+      artPlayerRef.current.fullscreen = true;
+      const video = artPlayerRef.current.video;
+      if (video && (video as any).webkitEnterFullscreen) {
+        try {
+          (video as any).webkitEnterFullscreen();
+        } catch {
+          // ignore
+        }
+      }
     }
   };
 
